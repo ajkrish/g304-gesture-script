@@ -5,9 +5,9 @@ DetectHiddenWindows, On
 
 ; Globals
 
-global g_filter_aggression, g_m_sample_rate, _mx_diff, _my_diff, _mx_prev, _my_prev, _mx, _my, _mx_filter, _my_filter, g_slide_x, g_slide_y
+global g_filter_aggression, g_m_sample_rate, _mx_diff, _my_diff, _mx_prev, _my_prev, _mx, _my, _mx_filter, _my_filter, g_slide_x, g_slide_y, g_slide_x_fast
 ; Time in ms between mouse position samples
-g_m_sample_rate := 20
+g_m_sample_rate := 25
 
 
 ; Mouse movement filter aggression parameter. Parameter should be between 0 and 1. Higher values mean more aggressive smoothing and higher latency in registering changes in mouse movement speed. A value of zero effectively disables the filter.
@@ -66,16 +66,65 @@ SideButtonEntry()
 
 while GetKeyState("f16", "P") {
 	UpdateGestures()
-		if(g_slide_x > 0) {
+	g_slide_x_fast := Ceil((Mod(Abs(g_slide_x),10)))
+	;DebugMessage(g_slide_x_fast)
+	;DebugMessage(g_slide_x)
+		if(g_slide_x > 20) {
+			Loop %g_slide_x_fast%{
 			Send {Volume_Up}
+			}
+			Return
 		}
-		else if(g_slide_x < 0) {
+		else if(g_slide_x >= 1 && g_slide_x <=20) {
+			Loop 1{
+			Send {Volume_Up}
+			}
+			Return
+		}
+		else if(g_slide_x <= -1 && g_slide_x >=-20) {
+			Loop 1{
 			Send {Volume_Down}
+			}
+			Return
+		}
+		else if(g_slide_x <-20) {
+			Loop %g_slide_x_fast%{
+			Send {Volume_Down}
+			}
+			Return
 		}
 	; Sample mouse movements at 20ms
-	Sleep 20
+	Sleep g_m_sample_rate
 }
 Return
+
+DebugMessage(str)
+{
+ global h_stdout
+ DebugConsoleInitialize()  ; start console window if not yet started
+ str .= "`n" ; add line feed
+ DllCall("WriteFile", "uint", h_Stdout, "uint", &str, "uint", StrLen(str), "uint*", BytesWritten, "uint", NULL) ; write into the console
+ WinSet, Bottom,, ahk_id %h_stout%  ; keep console on bottom
+}
+
+DebugConsoleInitialize()
+{
+   global h_Stdout     ; Handle for console
+   static is_open = 0  ; toogle whether opened before
+   if (is_open = 1)     ; yes, so don't open again
+     return
+	 
+   is_open := 1	
+   ; two calls to open, no error check (it's debug, so you know what you are doing)
+   DllCall("AttachConsole", int, -1, int)
+   DllCall("AllocConsole", int)
+
+   dllcall("SetConsoleTitle", "str","Paddy Debug Console")    ; Set the name. Example. Probably could use a_scriptname here 
+   h_Stdout := DllCall("GetStdHandle", "int", -11) ; get the handle
+   WinSet, Bottom,, ahk_id %h_stout%      ; make sure it's on the bottom
+   WinActivate,Lightroom   ; Application specific; I need to make sure this application is running in the foreground. YMMV
+   return
+}
 
 ; Exit Script - Ctrl-Shift-Win-X
 ^+#x::ExitApp
